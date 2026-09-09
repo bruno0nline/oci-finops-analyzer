@@ -1,5 +1,7 @@
 # 📊 OCI FinOps Analyzer
 
+> **Execução automática:** rode `bash scripts/run_finops.sh`. O script pergunta o período (1–90 dias) e gera CSV, Excel e Word automaticamente. Consulte o [guia atualizado](docs/EXECUCAO_AUTOMATICA.md) para resolução, falhas parciais e execução sem interação. O Word detalhado atual usa estimativas USD; a descrição BRL abaixo se refere ao gerador alternativo e está pendente de consolidação.
+
 <div align="center">
 
 ![OCI FinOps Analyzer](https://img.shields.io/badge/OCI-FinOps_Analyzer-red?style=for-the-badge&logo=oracle)

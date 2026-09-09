@@ -6,7 +6,7 @@ from docx import Document
 from docx.shared import Pt
 
 homedir = os.path.expanduser("~")
-DAYS = int(os.getenv("METRICS_DAYS", "30"))
+DAYS = 30
 
 CSV_PATH = os.path.join(homedir, f"Relatorio_CPU_Memoria_media_{DAYS}d_multi_region.csv")
 DOCX_PATH = os.path.join(homedir, f"Relatorio_FinOps_CPU_Mem_{DAYS}d_multi_region.docx")
@@ -43,7 +43,7 @@ def load_rows():
         print(f"CSV não encontrado: {CSV_PATH}")
         return rows
 
-    with open(CSV_PATH, newline="") as f:
+    with open(CSV_PATH, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for r in reader:
             rows.append(r)
@@ -65,7 +65,7 @@ def build_downsize_text(row):
     if cpu_mean < 5 and mem_mean < 40:
         fator = 0.25
 
-    new_ocpus = max(1, ocpus * fator)
+    new_ocpus = ocpus if row.get("finops_recommendation") == "DOWNSIZE-MEM" else max(1, ocpus * fator)
     new_mem = max(1, mem_gb * fator)
 
     current_cost = estimate_monthly_cost(ocpus, mem_gb)
@@ -114,10 +114,11 @@ def build_upscale_text(row):
     return text, extra
 
 
-def generate_report():
-    rows = load_rows()
-    if not rows:
-        return
+def generate_report(rows=None, days=DAYS, docx_path=None, interval=None, issues=None):
+    if rows is None:
+        rows = load_rows()
+    issues = issues or []
+    docx_path = docx_path or DOCX_PATH
 
     doc = Document()
     title = doc.add_heading(
@@ -134,7 +135,22 @@ def generate_report():
     run.italic = True
     run.font.size = Pt(9)
 
-    doc.add_paragraph(f"\nJanela de análise: últimos {DAYS} dias.")
+    doc.add_paragraph(f"\nPeríodo solicitado: últimos {days} dias.")
+    doc.add_paragraph(f"Instâncias coletadas: {len(rows)}. Status: {'PARCIAL' if issues else 'CONCLUÍDA'}.")
+    if interval:
+        doc.add_paragraph(
+            f"Agregação: {interval}. P95 calculado sobre médias agregadas. "
+            "No limite de retenção, o início é ajustado por consulta com margem de 5 minutos. "
+            "Janelas consultadas e quantidades de amostras estão no CSV/Excel."
+        )
+    missing = [r for r in rows if r.get("finops_recommendation") == "INSUFFICIENT_DATA"]
+    doc.add_paragraph(f"Instâncias com dados insuficientes, sem estimativa de economia: {len(missing)}.")
+    if not rows:
+        doc.add_paragraph("Nenhuma instância RUNNING coletada. Verifique o escopo e eventuais falhas abaixo.")
+    for issue in issues:
+        doc.add_paragraph(f"Falha de coleta: {issue}")
+    for row in missing:
+        doc.add_paragraph(f"Dados insuficientes: {row['instance_name']} | {row['region']}.")
 
     total_down_savings = 0.0
     total_up_extra = 0.0
@@ -193,9 +209,12 @@ def generate_report():
         "Os valores de OCPU e memória podem variar conforme contrato."
     )
 
-    doc.save(DOCX_PATH)
-    print(f"Relatório Word gerado: {DOCX_PATH}")
+    doc.save(docx_path)
+    print(f"Relatório Word gerado: {docx_path}")
 
 
 if __name__ == "__main__":
-    generate_report()
+    from finops_period import validate_days
+    days = validate_days(os.getenv("METRICS_DAYS", "30"))
+    CSV_PATH = os.path.join(homedir, f"Relatorio_CPU_Memoria_media_{days}d_multi_region.csv")
+    generate_report(days=days, docx_path=os.path.join(homedir, f"Relatorio_FinOps_CPU_Mem_{days}d_multi_region.docx"))

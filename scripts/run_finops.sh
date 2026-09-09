@@ -1,14 +1,13 @@
 #!/bin/bash
-set -e
+set -euo pipefail
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 
 echo "▶️ OCI FinOps Analyzer – Execução completa"
 
-python3 -m venv .venv
+if [[ ! -f .venv/bin/activate ]]; then
+    python3 -m venv .venv
+fi
 source .venv/bin/activate
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 
-python3 src/oci_metrics_cpu_mem_media_ndays.py
-python3 src/oci_metrics_cpu_mem_word_technical.py
-python3 src/oci_metrics_cpu_mem_word_top5.py
-
-echo "✅ Relatórios gerados com sucesso"
+python3 src/oci_metrics_cpu_mem_media_ndays.py "$@"

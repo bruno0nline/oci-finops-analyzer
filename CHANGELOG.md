@@ -7,6 +7,15 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Corrigido
+- Janela de Monitoring ajustada por requisição e retentativa, com margem de retenção; suporte a 1–90 dias e resolução automática.
+- Métricas ausentes classificadas como dados insuficientes; picos têm precedência sobre redução e P95 usa interpolação.
+- Coleta parcial preserva CSV por instância e informa falhas em Excel, Word e JSON.
+
+### Adicionado
+- Pergunta interativa de período e geração automática de Word no coletor principal, com opções `--days` e `--outdir`.
+- Testes offline de limites, retentativas e geração integrada de relatórios completos, parciais e vazios.
+
 ### Planejado
 - Dashboard web interativo
 - Suporte para análise de Block Volumes

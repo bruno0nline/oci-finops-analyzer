@@ -1,5 +1,7 @@
 # 🚀 Guia de Início Rápido
 
+> **Fluxo atualizado:** após clonar o projeto e entrar na pasta, execute apenas `bash scripts/run_finops.sh`. Responda quantos dias deseja (1–90); CSV, Excel e Word são gerados automaticamente. Não é necessário executar o gerador Word separadamente. Veja [execução automática](docs/EXECUCAO_AUTOMATICA.md).
+
 **Comece a otimizar seus custos OCI em 5 minutos!**
 
 ---
