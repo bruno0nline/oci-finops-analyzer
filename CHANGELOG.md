@@ -7,6 +7,14 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Corre??es de valida??o ? 10/09/2026
+- Escopo padr?o limitado a S?o Paulo e Vinhedo; sele??o expl?cita por `--regions`.
+- Motor ?nico de dimensionamento por P95, margem e limites conservadores de shape.
+- Cobertura m?nima configur?vel, bloqueio de shapes n?o suportadas/burstable e motivos por recurso.
+- Word utiliza configura??o candidata do coletor e explicita premissas financeiras.
+- Testes de regress?o de mem?ria, upscale independente, cobertura, limites e relat?rio.
+
+
 ### Corrigido
 - Janela de Monitoring ajustada por requisição e retentativa, com margem de retenção; suporte a 1–90 dias e resolução automática.
 - Métricas ausentes classificadas como dados insuficientes; picos têm precedência sobre redução e P95 usa interpolação.

@@ -66,7 +66,7 @@ class PeriodTests(unittest.TestCase):
         with patch.object(sys, "argv", ["collector"]), patch.object(sys.stdin, "isatty", return_value=True), patch.dict("os.environ", {"METRICS_DAYS": "29"}), patch.object(collector, "prompt_days", return_value=90) as prompt, patch.object(collector, "main", return_value=0) as main:
             self.assertEqual(collector.cli(), 0)
             prompt.assert_called_once()
-            main.assert_called_once_with(90, None)
+            main.assert_called_once_with(90, None, None, 90, 75)
 
 
 class PipelineTests(unittest.TestCase):

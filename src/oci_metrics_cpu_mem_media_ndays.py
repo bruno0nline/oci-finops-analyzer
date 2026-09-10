@@ -6,6 +6,7 @@ import json
 import math
 import sys
 from pathlib import Path
+from finops_recommendations import recommend
 from finops_period import validate_days, prompt_days, metric_interval, safe_start
 from datetime import datetime, timedelta, timezone
 
@@ -40,8 +41,11 @@ ISSUES = []
 METADATA = {}
 
 # ---------- helpers ----------
+DEFAULT_REGIONS = ("sa-saopaulo-1", "sa-vinhedo-1")
+
+
 def get_regions():
-    return [r.region_name for r in identity.list_region_subscriptions(tenancy_id).data]
+    return list(DEFAULT_REGIONS)
 
 def get_compartments():
     comps = oci.pagination.list_call_get_all_results(
@@ -139,7 +143,7 @@ def finops(cpu_mean, cpu_p95, mem_mean, mem_p95):
     return "KEEP"
 
 # ---------- main ----------
-def main(days=30, outdir=None):
+def main(days=30, outdir=None, regions=None, min_coverage=90, target_utilization=75):
     global cfg, tenancy_id, identity, DAYS, INTERVAL, CSV_PATH, XLSX_PATH
     DAYS = validate_days(days)
     INTERVAL = metric_interval(DAYS)
@@ -151,7 +155,8 @@ def main(days=30, outdir=None):
     cfg = oci.config.from_file(profile_name=os.getenv("OCI_CLI_PROFILE", "DEFAULT"))
     tenancy_id = cfg["tenancy"]
     identity = oci.identity.IdentityClient(cfg)
-    regions = get_regions()
+    regions = list(dict.fromkeys(regions or get_regions()))
+    print("Regi?es selecionadas: " + ", ".join(regions))
     compartments = get_compartments()
 
     end = datetime.now(timezone.utc)
@@ -214,8 +219,8 @@ def main(days=30, outdir=None):
                     "instance_name": inst.display_name,
                     "instance_ocid": inst.id,
                     "shape": inst.shape,
-                    "ocpus": getattr(inst_full.shape_config, "ocpus", None),
-                    "memory_gb": getattr(inst_full.shape_config, "memory_in_gbs", None),
+                    "ocpus": getattr(getattr(inst_full, "shape_config", None), "ocpus", None),
+                    "memory_gb": getattr(getattr(inst_full, "shape_config", None), "memory_in_gbs", None),
                     "burstable_enabled": burst,
                     "baseline_percent": baseline,
                     "baseline_raw": baseline_raw,
@@ -233,6 +238,7 @@ def main(days=30, outdir=None):
                     "mem_samples": METADATA["MemoryUtilization"]["samples"],
                     "collection_error": " | ".join(filter(None, [detail_error, METADATA["CpuUtilization"]["error"], METADATA["MemoryUtilization"]["error"]]))
                 })
+                rows[-1].update(recommend(rows[-1], min_coverage, target_utilization))
                 # Fecha o arquivo a cada recurso: progresso preservado mesmo se houver interrupção.
                 with open(CSV_PATH, "a", newline="", encoding="utf-8") as checkpoint:
                     writer = csv.DictWriter(checkpoint, fieldnames=list(rows[-1]))
@@ -263,7 +269,7 @@ def main(days=30, outdir=None):
         ws.append([r[h] for h in headers])
         row = ws.max_row
         rec = r["finops_recommendation"]
-        if rec == "INSUFFICIENT_DATA":
+        if rec in ("INSUFFICIENT_DATA", "REVIEW"):
             ws.cell(row=row, column=rec_col).fill = PatternFill("solid", fgColor="D9D9D9")
         elif rec.startswith("DOWNSIZE"):
             ws.cell(row=row, column=rec_col).fill = fill_down
@@ -284,7 +290,8 @@ def main(days=30, outdir=None):
     status_path.write_text(json.dumps({
         "status": "partial" if ISSUES else "complete", "days": DAYS, "interval": INTERVAL,
         "requested_start_utc": start.isoformat(), "end_utc": end.isoformat(),
-        "instances": len(rows), "issues": ISSUES,
+        "instances": len(rows), "issues": ISSUES, "regions": regions,
+        "rule_version": "2.0", "min_coverage_percent": min_coverage, "target_utilization_percent": target_utilization,
     }, ensure_ascii=False, indent=2), encoding="utf-8")
     from oci_metrics_cpu_mem_word_report import generate_report
     generate_report(rows=rows, days=DAYS, interval=INTERVAL, issues=ISSUES,
@@ -303,7 +310,12 @@ def cli():
     parser = argparse.ArgumentParser(description="Coleta OCI FinOps e gera CSV, Excel e Word.")
     parser.add_argument("--days", help="Dias de análise (1 a 90); omita para responder à pergunta.")
     parser.add_argument("--outdir", help="Destino dos relatórios (padrão: diretório pessoal).")
+    parser.add_argument("--regions", nargs="+", help="Regi?es OCI (padr?o: S?o Paulo e Vinhedo).")
+    parser.add_argument("--min-coverage", type=float, default=90, help="Cobertura m?nima percentual (padr?o: 90).")
+    parser.add_argument("--target-utilization", type=float, default=75, help="Utiliza??o alvo no P95 (padr?o: 75).")
     args = parser.parse_args()
+    if not 0 < args.min_coverage <= 100 or not 0 < args.target_utilization <= 80:
+        parser.error("Cobertura deve estar em (0,100]; utiliza??o alvo em (0,80].")
     try:
         value = args.days
         if value is None and not sys.stdin.isatty():
@@ -311,7 +323,7 @@ def cli():
         days = prompt_days() if value is None else validate_days(value)
     except ValueError as exc:
         parser.error(str(exc))
-    return main(days, args.outdir)
+    return main(days, args.outdir, args.regions, args.min_coverage, args.target_utilization)
 
 
 if __name__ == "__main__":

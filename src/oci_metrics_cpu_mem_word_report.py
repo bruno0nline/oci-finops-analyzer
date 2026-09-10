@@ -1,6 +1,7 @@
 import os
 import csv
 from datetime import datetime
+from finops_recommendations import recommend
 
 from docx import Document
 from docx.shared import Pt
@@ -61,12 +62,8 @@ def build_downsize_text(row):
     ocpus = to_float(row["ocpus"]) or 0
     mem_gb = to_float(row["memory_gb"]) or 0
 
-    fator = 0.5
-    if cpu_mean < 5 and mem_mean < 40:
-        fator = 0.25
-
-    new_ocpus = ocpus if row.get("finops_recommendation") == "DOWNSIZE-MEM" else max(1, ocpus * fator)
-    new_mem = max(1, mem_gb * fator)
+    new_ocpus = float(row["proposed_ocpus"])
+    new_mem = float(row["proposed_memory_gb"])
 
     current_cost = estimate_monthly_cost(ocpus, mem_gb)
     new_cost = estimate_monthly_cost(new_ocpus, new_mem)
@@ -95,9 +92,8 @@ def build_upscale_text(row):
     ocpus = to_float(row["ocpus"]) or 0
     mem_gb = to_float(row["memory_gb"]) or 0
 
-    fator = 2.0
-    new_ocpus = ocpus * fator
-    new_mem = mem_gb * fator
+    new_ocpus = float(row["proposed_ocpus"])
+    new_mem = float(row["proposed_memory_gb"])
 
     current_cost = estimate_monthly_cost(ocpus, mem_gb)
     new_cost = estimate_monthly_cost(new_ocpus, new_mem)
@@ -117,6 +113,8 @@ def build_upscale_text(row):
 def generate_report(rows=None, days=DAYS, docx_path=None, interval=None, issues=None):
     if rows is None:
         rows = load_rows()
+    # CSV antigo passa pelo mesmo motor; sem evid?ncias de cobertura n?o gera proposta.
+    rows = [dict(r, **recommend(r)) if not r.get("rule_version") else r for r in rows]
     issues = issues or []
     docx_path = docx_path or DOCX_PATH
 
@@ -147,8 +145,11 @@ def generate_report(rows=None, days=DAYS, docx_path=None, interval=None, issues=
     doc.add_paragraph(f"Instâncias com dados insuficientes, sem estimativa de economia: {len(missing)}.")
     if not rows:
         doc.add_paragraph("Nenhuma instância RUNNING coletada. Verifique o escopo e eventuais falhas abaixo.")
-    for issue in issues:
-        doc.add_paragraph(f"Falha de coleta: {issue}")
+    doc.add_paragraph("Regi?es com recursos coletados: " + ", ".join(sorted({r.get("region", "") for r in rows})))
+    doc.add_paragraph("Configura??es candidatas para revis?o operacional. P95 agregado n?o captura todos os picos. Cobertura considera a janela consultada, sem descontar agendas de desligamento.")
+    for row in rows:
+        if row.get("finops_recommendation") in ("INSUFFICIENT_DATA", "REVIEW"):
+            doc.add_paragraph(f"{row['instance_name']}: {row.get('recommendation_reason', '')}")
     for row in missing:
         doc.add_paragraph(f"Dados insuficientes: {row['instance_name']} | {row['region']}.")
 
@@ -209,6 +210,10 @@ def generate_report(rows=None, days=DAYS, docx_path=None, interval=None, issues=
         "Os valores de OCPU e memória podem variar conforme contrato."
     )
 
+    if issues:
+        doc.add_heading("Anexo: falhas de coleta", level=1)
+        for issue in issues:
+            doc.add_paragraph(f"Falha de coleta: {issue}")
     doc.save(docx_path)
     print(f"Relatório Word gerado: {docx_path}")
 

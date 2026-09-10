@@ -1,3 +1,5 @@
+> **Atualiza??o 10/09/2026:** o fluxo principal consulta somente S?o Paulo e Vinhedo por padr?o. Dimensionamento por P95 com margem, cobertura m?nima de 90% e propostas ?nicas no CSV/Excel/Word. Valores financeiros ainda s?o cen?rios ilustrativos USD. Consulte as regras e o comando de valida??o em [Execu??o autom?tica](docs/EXECUCAO_AUTOMATICA.md#corre??es-de-dimensionamento--10092026); exemplos antigos abaixo n?o representam todas as regras atuais.
+
 # 🚀 Guia de Início Rápido
 
 > **Fluxo atualizado:** após clonar o projeto e entrar na pasta, execute apenas `bash scripts/run_finops.sh`. Responda quantos dias deseja (1–90); CSV, Excel e Word são gerados automaticamente. Não é necessário executar o gerador Word separadamente. Veja [execução automática](docs/EXECUCAO_AUTOMATICA.md).

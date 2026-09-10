@@ -59,3 +59,26 @@ python3 -m unittest discover -s tests -v
 ```
 
 Os testes usam APIs simuladas e geram arquivos Office reais em diretórios temporários. A validação de autenticação, rede, permissões e dados reais requer execução no Cloud Shell.
+
+## Corre??es de dimensionamento ? 10/09/2026
+
+O escopo padr?o desta conta ? **sa-saopaulo-1 e sa-vinhedo-1**. Outras regi?es n?o s?o consultadas. Para substituir explicitamente: `--regions sa-saopaulo-1` (aceita v?rios nomes separados por espa?o).
+
+Execute no Cloud Shell ap?s atualizar o reposit?rio:
+
+```bash
+git pull --ff-only
+bash scripts/run_finops.sh --days 30 --outdir ~/finops_reports/validacao-v2
+```
+
+Traga os quatro arquivos dessa pasta: CSV, XLSX, DOCX e JSON. Use outro destino para uma nova rodada, pois arquivos no mesmo destino s?o sobrescritos.
+
+O motor `finops_recommendations.py` calcula CPU e mem?ria separadamente, usando P95 agregado e utiliza??o alvo de 75%. Arredonda para cima em unidades inteiras de OCPU/GB e valida limites conservadores de E3/E4/E5/A1 Flex. Shapes fixas, desconhecidas, burstable ou configura??es fora do cat?logo padr?o recebem `REVIEW`, sem configura??o proposta ou economia. O c?lculo n?o confirma disponibilidade regional, compatibilidade da imagem, capacidade de rede/I/O ou requisitos de HA/aplica??o; as propostas exigem revis?o operacional.
+
+Cobertura m?nima: 90% da janela efetivamente consultada para ambas as m?tricas. Contagem de amostras ? uma aproxima??o de cobertura, sem prova de continuidade. Nesta etapa, n?o descontamos agendas, desligamentos ou cria??o recente: esses casos ficam como `INSUFFICIENT_DATA` para investiga??o. Op??es: `--min-coverage 90 --target-utilization 75`. Diminuir a cobertura relaxa a pol?tica e exige justificativa operacional.
+
+Novas colunas: vers?o da regra, cobertura CPU/mem?ria, par?metros da pol?tica, motivo, OCPUs/GB propostos e P95 projetado. CSV, Excel e Word usam a mesma configura??o candidata. O Word n?o aplica mais cortes de 50%/75% nem dobra ambas as dimens?es no upscale. `DOWNSIZE-STRONG` deixa de ser emitido pelo fluxo principal; `DOWNSIZE` e `DOWNSIZE-MEM` expressam a proposta calculada.
+
+O custo continua sendo cen?rio ilustrativo USD, com pre?os gen?ricos e 730 horas/m?s, sem concilia??o com fatura. A integra??o financeira por SKU/contrato permanece para a pr?xima etapa. Falhas detalhadas aparecem no anexo do Word.
+
+Refer?ncia dos limites: [Oracle Compute Shapes](https://docs.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm). Cat?logo conservador versionado; extended memory exige revis?o.
